@@ -14,7 +14,7 @@ As contas de demonstração estão em `.env.example` (`DEMO_*`).
 >
 > **Login com Google/GitHub (opcional):** não vem configurado. Cria as tuas apps OAuth e adiciona-as em Authentik → Directory → Federation & Social login.
 >
-> **Já corriaste o projeto antes?** O Postgres e o Authentik guardam as passwords nos volumes. Se mudares o `.env`, corre `docker compose down -v` primeiro (apaga os dados locais).
+> **Já correste o projeto antes?** O Postgres e o Authentik guardam as passwords nos volumes. Se mudares o `.env`, corre `docker compose down -v` primeiro (apaga os dados locais).
 ---
 
 ## After changing backend code (Java)
