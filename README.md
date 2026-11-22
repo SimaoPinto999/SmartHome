@@ -25,7 +25,7 @@ Através de fluxos de dados distribuídos via **MQTT** e de uma arquitetura base
 * [Relatórios de Especificação (/reports)](./reports)
 * [Documentação da API REST](./reports/ApiDocumentation.pdf)
 
-## Arquitetura do Sistema (v0.3)
+## Arquitetura do Sistema
 
 O diagrama abaixo reflete a infraestrutura atualizada planeada para contentorização, demonstrando o fluxo de telemetria, atuação e persistência.
 
