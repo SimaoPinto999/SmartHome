@@ -1,0 +1,20 @@
+{
+  "name": "SmartHome",
+  "short_name": "SmartHome",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f1e23",
+  "theme_color": "#06bcf9",
+  "icons": [
+    {
+      "src": "https://lh3.googleusercontent.com/aida-public/AB6AXuBl0_FshePXHsTQYi9BycOVKIh0L-JaIPGc2EZw_IjNb0ZzbbyUh440mtCI3BwFGcLxVcw8ImVeI0CBtD_esU88SNZtutss7UrVotPb-kdr8_O3NQp5aWp49dllTl3gXPIsHZQg-pc6dTPxikIXSH1b5SvHdT1mul4k1bCHWCmT8WRo9BuMylud-01NYOGnjk4jLjtc3WYeoZHyhpub6Fbtx2OTQqf_QxMKcEzP1UixL19hWGEpoGB3gbUrXEDo6fI9CeKl0d5kN71F",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://lh3.googleusercontent.com/aida-public/AB6AXuBl0_FshePXHsTQYi9BycOVKIh0L-JaIPGc2EZw_IjNb0ZzbbyUh440mtCI3BwFGcLxVcw8ImVeI0CBtD_esU88SNZtutss7UrVotPb-kdr8_O3NQp5aWp49dllTl3gXPIsHZQg-pc6dTPxikIXSH1b5SvHdT1mul4k1bCHWCmT8WRo9BuMylud-01NYOGnjk4jLjtc3WYeoZHyhpub6Fbtx2OTQqf_QxMKcEzP1UixL19hWGEpoGB3gbUrXEDo6fI9CeKl0d5kN71F",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

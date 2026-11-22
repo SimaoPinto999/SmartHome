@@ -1,0 +1,237 @@
+services:
+  # Database Service for the rest of the app
+  postgres:
+    image: postgres:16-alpine
+    container_name: smarthome_db
+    environment:
+      TZ: Europe/Lisbon
+      POSTGRES_DB: ${POSTGRES_DB:-smarthome}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d ${POSTGRES_DB:-smarthome} -U ${POSTGRES_USER:-postgres}"]
+      start_period: 20s
+      interval: 10s
+      retries: 5
+      timeout: 5s
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./sql-scripts/DDL.sql:/docker-entrypoint-initdb.d/01-DDL.sql
+      - ./sql-scripts/DML.sql:/docker-entrypoint-initdb.d/02-DML.sql
+    networks:
+      - smarthome_net
+
+  # Authentik PostgreSQL Service
+  authentik-postgresql:
+    image: docker.io/library/postgres:16-alpine
+    container_name: authentik_postgres
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
+      start_period: 20s
+      interval: 30s
+      retries: 5
+      timeout: 5s
+    volumes:
+      - authentik_postgres_data:/var/lib/postgresql/data
+    environment:
+      TZ: Europe/Lisbon
+      POSTGRES_PASSWORD: ${PG_PASS:-authentik_db_password}
+      POSTGRES_USER: ${PG_USER:-authentik}
+      POSTGRES_DB: ${PG_DB:-authentik}
+    networks:
+      - smarthome_net
+
+  # Authentik Redis Service
+  authentik-redis:
+    image: docker.io/library/redis:alpine
+    container_name: authentik_redis
+    environment:
+      TZ: Europe/Lisbon
+    command: --save 60 1 --loglevel warning
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+      start_period: 20s
+      interval: 30s
+      retries: 5
+      timeout: 3s
+    volumes:
+      - authentik_redis_data:/data
+    networks:
+      - smarthome_net
+
+  # Authentik Server
+  authentik-server:
+    image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2026.2.3}
+    container_name: authentik_server
+    restart: unless-stopped
+    command: server
+    environment:
+      TZ: Europe/Lisbon
+      AUTHENTIK_REDIS__HOST: authentik-redis
+      AUTHENTIK_POSTGRESQL__HOST: authentik-postgresql
+      AUTHENTIK_POSTGRESQL__USER: ${PG_USER:-authentik}
+      AUTHENTIK_POSTGRESQL__NAME: ${PG_DB:-authentik}
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${PG_PASS:-authentik_db_password}
+      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY:-thisisasupersecretkeyyoumustchangeit}
+      AUTHENTIK_BOOTSTRAP_PASSWORD: ${DEMO_ADMIN_PASSWORD}
+      AUTHENTIK_BOOTSTRAP_EMAIL: ${DEMO_ADMIN_EMAIL:-admin@example.com}
+      # AUTHENTIK_ERROR_REPORTING__ENABLED: "true"
+    volumes:
+      - ./authentik/media:/media
+      - ./authentik/custom-templates:/templates
+      - ./blueprints:/blueprints/custom:ro
+    ports:
+      - "${COMPOSE_PORT_HTTP:-9090}:9000"
+      - "${COMPOSE_PORT_HTTPS:-9444}:9443"
+    depends_on:
+      - authentik-postgresql
+      - authentik-redis
+    networks:
+      - smarthome_net
+
+  # Authentik Worker
+  authentik-worker:
+    image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2026.2.3}
+    container_name: authentik_worker
+    restart: unless-stopped
+    command: worker
+    environment:
+      TZ: Europe/Lisbon
+      AUTHENTIK_REDIS__HOST: authentik-redis
+      AUTHENTIK_POSTGRESQL__HOST: authentik-postgresql
+      AUTHENTIK_POSTGRESQL__USER: ${PG_USER:-authentik}
+      AUTHENTIK_POSTGRESQL__NAME: ${PG_DB:-authentik}
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${PG_PASS:-authentik_db_password}
+      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY:-thisisasupersecretkeyyoumustchangeit}
+      AUTHENTIK_BOOTSTRAP_PASSWORD: ${DEMO_ADMIN_PASSWORD}
+      AUTHENTIK_BOOTSTRAP_EMAIL: ${DEMO_ADMIN_EMAIL:-admin@example.com}
+      DEMO_MARIA_EMAIL: ${DEMO_MARIA_EMAIL:-mariasilveira@email.com}
+      DEMO_MARIA_PASSWORD: ${DEMO_MARIA_PASSWORD}
+      DEMO_JONAS_EMAIL: ${DEMO_JONAS_EMAIL:-jonaspistolas@email.com}
+      DEMO_JONAS_PASSWORD: ${DEMO_JONAS_PASSWORD}
+      # AUTHENTIK_ERROR_REPORTING__ENABLED: "true"
+    user: root
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./authentik/media:/media
+      - ./authentik/certs:/certs
+      - ./authentik/custom-templates:/templates
+      - ./blueprints:/blueprints/custom:ro
+    depends_on:
+      - authentik-postgresql
+      - authentik-redis
+    networks:
+      - smarthome_net
+
+  # RabbitMQ Service
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: smarthome_rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672"   # AMQP
+      - "15672:15672" # Management UI
+      - "1883:1883"   # MQTT
+    environment:
+      TZ: Europe/Lisbon
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-guest}
+    command: /bin/sh -c "rabbitmq-plugins enable --offline rabbitmq_mqtt && rabbitmq-server"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - smarthome_net
+
+  # InfluxDB Service
+  influxdb:
+    image: influxdb:2.7.1
+    container_name: smarthome_influxdb
+    restart: unless-stopped
+    ports:
+      - "8086:8086"
+    environment:
+      - TZ=Europe/Lisbon
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=admin
+      - DOCKER_INFLUXDB_INIT_PASSWORD=${INFLUXDB_PASS}
+      - DOCKER_INFLUXDB_INIT_ORG=${INFLUXDB_ORG:-smarthome}
+      - DOCKER_INFLUXDB_INIT_BUCKET=${INFLUXDB_BUCKET:-smarthome_metrics}
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${INFLUXDB_TOKEN}
+    volumes:
+      - influxdb_data:/var/lib/influxdb2
+    networks:
+      - smarthome_net
+
+  # Backend Service
+  backend:
+    build:
+      context: ./backend/smarthome
+      dockerfile: Dockerfile
+    container_name: smarthome_backend
+    ports:
+      - "8081:8081"
+    environment:
+      - TZ=Europe/Lisbon
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/${POSTGRES_DB:-smarthome}
+      - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER:-postgres}
+      - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD}
+      - RABBITMQ_USER=${RABBITMQ_USER:-smarthome}
+      - RABBITMQ_PASS=${RABBITMQ_PASS}
+      - INFLUXDB_TOKEN=${INFLUXDB_TOKEN}
+    restart: on-failure
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
+      influxdb:
+        condition: service_started
+    networks:
+      - smarthome_net
+
+  # Frontend Service
+  frontend:
+    build:
+      context: ./frontend
+    container_name: smarthome_frontend
+    environment:
+      - TZ=Europe/Lisbon
+    ports:
+      - "3000:80" #Nginx is running on port 80 internally
+    depends_on:
+      - backend
+    networks:
+      - smarthome_net
+
+  # Virtual Sensors Simulator
+  virtual_sensors:
+    build:
+      context: ./virtual_sensors
+      dockerfile: Dockerfile
+    container_name: smarthome_virtual_sensors
+    restart: unless-stopped
+    environment:
+      - TZ=Europe/Lisbon
+      - MQTT_HOST=rabbitmq
+      - MQTT_PORT=1883
+      - MQTT_USER=${RABBITMQ_USER:-guest}
+      - MQTT_PASS=${RABBITMQ_PASS:-guest}
+    depends_on:
+      - rabbitmq
+    networks:
+      - smarthome_net
+
+networks:
+  smarthome_net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  authentik_postgres_data:
+  authentik_redis_data:
+  rabbitmq_data:
+  influxdb_data:
